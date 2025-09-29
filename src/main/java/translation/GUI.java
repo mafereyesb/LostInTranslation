@@ -1,66 +1,87 @@
 package translation;
 
 import javax.swing.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.List;
 
-
-// TODO Task D: Update the GUI for the program to align with UI shown in the README example.
-//            Currently, the program only uses the CanadaTranslator and the user has
-//            to manually enter the language code they want to use for the translation.
-//            See the examples package for some code snippets that may be useful when updating
-//            the GUI.
+/**
+ * GUI for the Country Name Translator program.
+ * Dropdown menus show country and language names,
+ * but translation uses their codes behind the scenes.
+ */
 public class GUI {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
+            // --- Converters ---
+            CountryCodeConverter countryConverter = new CountryCodeConverter();
+            LanguageCodeConverter languageConverter = new LanguageCodeConverter();
+
+            // --- Translator with JSON data ---
+            Translator translator = new JSONTranslator();
+
+            // Fetch available codes
+            List<String> countryCodes = translator.getCountryCodes();
+            List<String> languageCodes = translator.getLanguageCodes();
+
+            // --- Country dropdown (shows names) ---
             JPanel countryPanel = new JPanel();
-            JTextField countryField = new JTextField(10);
-            countryField.setText("can");
-            countryField.setEditable(false); // we only support the "can" country code for now
-            countryPanel.add(new JLabel("Country:"));
-            countryPanel.add(countryField);
+            JComboBox<String> countryCombo = new JComboBox<>();
+            for (String code : countryCodes) {
+                String name = countryConverter.fromCountryCode(code);
+                countryCombo.addItem(name != null ? name : code); // fallback to code if missing
+            }
+//            countryPanel.add(new JLabel("Country:"));
+            countryPanel.add(countryCombo);
 
+            // --- Language dropdown (shows names) ---
             JPanel languagePanel = new JPanel();
-            JTextField languageField = new JTextField(10);
+            JComboBox<String> languageCombo = new JComboBox<>();
+            for (String code : languageCodes) {
+                String name = languageConverter.fromLanguageCode(code);
+                languageCombo.addItem(name != null ? name : code);
+            }
             languagePanel.add(new JLabel("Language:"));
-            languagePanel.add(languageField);
+            languagePanel.add(languageCombo);
 
-            JPanel buttonPanel = new JPanel();
-            JButton submit = new JButton("Submit");
-            buttonPanel.add(submit);
+            // --- Result label ---
+            JPanel resultPanel = new JPanel();
+            JLabel resultLabelText = new JLabel("Translated:");
+            JLabel resultLabel = new JLabel("Select country and language.");
+            resultPanel.add(resultLabelText);
+            resultPanel.add(resultLabel);
 
-            JLabel resultLabelText = new JLabel("Translation:");
-            buttonPanel.add(resultLabelText);
-            JLabel resultLabel = new JLabel("\t\t\t\t\t\t\t");
-            buttonPanel.add(resultLabel);
-
-
-            // adding listener for when the user clicks the submit button
-            submit.addActionListener(new ActionListener() {
+            // --- Action listener to update translation ---
+            ActionListener updateTranslation = new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    String language = languageField.getText();
-                    String country = countryField.getText();
+                    String selectedCountryName = (String) countryCombo.getSelectedItem();
+                    String selectedLanguageName = (String) languageCombo.getSelectedItem();
 
-                    // for now, just using our simple translator, but
-                    // we'll need to use the real JSON version later.
-                    Translator translator = new CanadaTranslator();
+                    if (selectedCountryName != null && selectedLanguageName != null) {
+                        String countryCode = countryConverter.fromCountry(selectedCountryName);
+                        String languageCode = languageConverter.fromLanguage(selectedLanguageName);
 
-                    String result = translator.translate(country, language);
-                    if (result == null) {
-                        result = "no translation found!";
+                        String translation = translator.translate(countryCode, languageCode);
+                        if (translation == null) {
+                            translation = "No translation found!";
+                        }
+                        resultLabel.setText(translation);
                     }
-                    resultLabel.setText(result);
-
                 }
+            };
 
-            });
+            // Attach listener to both dropdowns
+            countryCombo.addActionListener(updateTranslation);
+            languageCombo.addActionListener(updateTranslation);
 
+            // --- Main layout ---
             JPanel mainPanel = new JPanel();
             mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-            mainPanel.add(countryPanel);
             mainPanel.add(languagePanel);
-            mainPanel.add(buttonPanel);
+            mainPanel.add(resultPanel);
+            mainPanel.add(countryPanel);
 
             JFrame frame = new JFrame("Country Name Translator");
             frame.setContentPane(mainPanel);
@@ -68,7 +89,11 @@ public class GUI {
             frame.pack();
             frame.setVisible(true);
 
-
+            // Trigger an initial translation for defaults
+            if (!countryCodes.isEmpty() && !languageCodes.isEmpty()) {
+                countryCombo.setSelectedIndex(0);
+                languageCombo.setSelectedIndex(0);
+            }
         });
     }
 }
